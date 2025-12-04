@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-capcut_db}
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - capcut_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-capcut_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: ${DATABASE_URL:-postgresql://user:password@postgres:5432/capcut_db}
+      
+      # Internal Services
+      BOT_SERVICE_URL: http://bot:5000
+      
+      # External URLs (Coolify will set these)
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      
+      # Security
+      SECRET_KEY: ${SECRET_KEY:-d0jHLe60pCHdQMd_JTfTJkWR5XOPsghB1EGtgO78Vsk}
+      
+      # Email Configuration
+      GMAIL_USER: ${GMAIL_USER:-davidejere2001@gmail.com}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD}
+      
+      # Environment
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      
+    networks:
+      - capcut_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    expose:
+      - "8000"
+    labels:
+      - "coolify.managed=true"
+      - "coolify.service=backend"
+
+  # Bot Service (Internal Only)
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    environment:
+      # CapCut Account
+      CAPCUT_EMAIL: ${CAPCUT_EMAIL:-davidejere2001@gmail.com}
+      CAPCUT_PASSWORD: ${CAPCUT_PASSWORD}
+      
+      # Gmail IMAP for password reset emails
+      GMAIL_EMAIL: ${GMAIL_EMAIL:-davidejere2001@gmail.com}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD}
+      
+      # IMAP Settings
+      IMAP_HOST: ${IMAP_HOST:-imap.gmail.com}
+      IMAP_PORT: ${IMAP_PORT:-993}
+      
+      # Bot Settings
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      HEADLESS: ${HEADLESS:-true}
+      PORT: 5000
+      
+    networks:
+      - capcut_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    expose:
+      - "5000"
+    labels:
+      - "coolify.managed=true"
+      - "coolify.service=bot"
+    # Add system packages for Playwright
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    environment:
+      # API URLs (Coolify will set these to public URLs)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      
+      # Next.js Settings
+      NODE_ENV: production
+      
+    networks:
+      - capcut_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    expose:
+      - "3000"
+    labels:
+      - "coolify.managed=true"
+      - "coolify.service=frontend"
+      - "coolify.http.main=true"
+
+volumes:
+  postgres_data:
+    driver: local
+    labels:
+      - "coolify.managed=true"
+
+networks:
+  capcut_network:
+    driver: bridge
+    labels:
+      - "coolify.managed=true"

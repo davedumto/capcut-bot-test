@@ -504,18 +504,9 @@ class CapCutPasswordResetBot:
         return True
         
     async def close_browser(self):
-        """STEP 14: Close browser and cleanup temp files"""
+        """STEP 14: Close browser and cleanup"""
         if self.browser:
             await self.browser.close()
-            
-        # Clean up temporary incognito directory
-        if hasattr(self, 'temp_dir'):
-            import shutil
-            try:
-                shutil.rmtree(self.temp_dir)
-                print(f"🧹 Cleaned up incognito session: {self.temp_dir}")
-            except Exception as e:
-                print(f"⚠️  Could not clean temp dir: {e}")
         
     async def run_complete_flow(self) -> tuple[bool, str]:
         """
