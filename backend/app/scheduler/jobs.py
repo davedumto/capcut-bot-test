@@ -14,6 +14,8 @@ import logging
 import sys
 import os
 
+logger = logging.getLogger(__name__)
+
 # Add the bot directory to Python path for importing our working bot
 # Path: backend/app/scheduler/jobs.py -> go up 3 levels to reach root, then into bot
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bot'))
@@ -23,8 +25,6 @@ try:
 except ImportError:
     logger.error("Could not import CapCutPasswordResetBot - check bot directory path")
     CapCutPasswordResetBot = None
-
-logger = logging.getLogger(__name__)
 
 
 def get_database_session():

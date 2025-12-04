@@ -59,8 +59,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     labels:
       - "coolify.managed=true"
       - "coolify.service=backend"
@@ -134,8 +134,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     labels:
       - "coolify.managed=true"
       - "coolify.service=frontend"
