@@ -1,0 +1,5 @@
+playwright==1.48.0
+imap-tools==1.6.0
+python-dotenv==1.0.0
+email-validator==2.1.0
+asyncio==3.4.3
