@@ -1,7 +1,7 @@
 // API client for calling FastAPI backend
 // As specified in instructions.md
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-z83r.onrender.com'
 
 export interface TimeSlot {
   id: string
