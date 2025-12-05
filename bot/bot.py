@@ -116,7 +116,15 @@ class CapCutPasswordResetBot:
                 '--disable-renderer-backgrounding',
                 '--disable-backgrounding-occluded-windows',
                 '--disable-features=TranslateUI',
-                '--disable-ipc-flooding-protection'
+                '--disable-ipc-flooding-protection',
+                # GPU-related flags to fix EGL/graphics init in containers
+                '--disable-gpu',
+                '--disable-gpu-sandbox',
+                '--disable-software-rasterizer',
+                '--disable-gpu-compositing',
+                '--disable-gl-drawing-for-tests',
+                '--use-gl=swiftshader',
+                '--in-process-gpu',
             ],
             # Add realistic headers
             extra_http_headers={
