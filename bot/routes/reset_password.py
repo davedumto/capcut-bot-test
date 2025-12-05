@@ -2,8 +2,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import logging
 import os
-from services.capcut_bot import reset_password_forgot_flow
-from services.password_generator import generate_strong_password
+import traceback
+import sys
+
+# Add parent directory to path to import bot.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import the WORKING bot class from bot.py (not the broken services/capcut_bot.py)
+from bot import CapCutPasswordResetBot
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -29,39 +35,53 @@ async def reset_password(request: ResetPasswordRequest):
     Returns: {"success": true, "new_password": "..."}
     """
     try:
-        # Use CAPCUT_EMAIL from env if not provided
-        if not request.email:
-            request.email = os.getenv('CAPCUT_EMAIL')
-            
-        # Generate password if not provided
-        if not request.new_password:
-            request.new_password = generate_strong_password()
+        # Get credentials from environment
+        capcut_email = request.email or os.getenv('CAPCUT_EMAIL')
+        gmail_email = os.getenv('GMAIL_EMAIL')
+        gmail_app_password = os.getenv('GMAIL_APP_PASSWORD')
         
-        logger.info(f"Starting password reset for {request.email}")
+        if not capcut_email:
+            raise ValueError("CAPCUT_EMAIL environment variable not set")
+        if not gmail_email:
+            raise ValueError("GMAIL_EMAIL environment variable not set")
+        if not gmail_app_password:
+            raise ValueError("GMAIL_APP_PASSWORD environment variable not set")
         
-        # Run the forgot password flow
-        result = await reset_password_forgot_flow(
-            email=request.email,
-            new_password=request.new_password
+        logger.info(f"Starting password reset for {capcut_email}")
+        
+        # Use the WORKING CapCutPasswordResetBot class from bot.py
+        # This has cookies handling, robust selectors, and anti-detection
+        bot = CapCutPasswordResetBot(
+            capcut_email=capcut_email,
+            gmail_email=gmail_email,
+            gmail_app_password=gmail_app_password,
+            headless=True  # Run headless in production
         )
         
-        if result["success"]:
-            logger.info(f"Password reset successful for {request.email}")
+        # Run the complete 14-step flow
+        success, new_password = await bot.run_complete_flow()
+        
+        if success and new_password:
+            logger.info(f"Password reset successful for {capcut_email}")
             return ResetPasswordResponse(
                 success=True,
-                new_password=request.new_password,
+                new_password=new_password,
                 message="Password reset successfully"
             )
         else:
-            logger.error(f"Password reset failed: {result['message']}")
+            logger.error(f"Password reset failed for {capcut_email}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Password reset failed: {result['message']}"
+                detail="Password reset failed - bot did not succeed"
             )
             
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error in reset_password: {str(e)}")
+        error_msg = f"Error: {str(e)}"
+        logger.error(f"Error in reset_password: {error_msg}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error: {str(e)}"
+            detail=error_msg
         )

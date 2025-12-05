@@ -1,5 +1,6 @@
 import asyncio
 import os
+import shutil
 from playwright.async_api import async_playwright, Page, Browser
 from imap_tools import MailBox
 from dotenv import load_dotenv
@@ -507,6 +508,14 @@ class CapCutPasswordResetBot:
         """STEP 14: Close browser and cleanup"""
         if self.browser:
             await self.browser.close()
+        
+        # Clean up temp directory to prevent disk space issues on Render
+        if hasattr(self, 'temp_dir') and self.temp_dir:
+            try:
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+                print(f"🧹 Cleaned up temp directory: {self.temp_dir}")
+            except Exception as e:
+                print(f"⚠️  Could not clean temp dir: {e}")
         
     async def run_complete_flow(self) -> tuple[bool, str]:
         """

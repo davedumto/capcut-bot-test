@@ -1,7 +1,14 @@
 // API client for calling FastAPI backend
 // As specified in instructions.md
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-z83r.onrender.com'
+// For Railway deployment: Set NEXT_PUBLIC_API_URL in Railway dashboard
+// Example: https://your-backend-service.railway.app
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// Log warning if using localhost in production
+if (typeof window !== 'undefined' && API_BASE_URL.includes('localhost')) {
+  console.warn('⚠️ API_BASE_URL is using localhost. Set NEXT_PUBLIC_API_URL environment variable for production.')
+}
 
 export interface TimeSlot {
   id: string
