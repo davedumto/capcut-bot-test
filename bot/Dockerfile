@@ -4,7 +4,7 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install ALL system dependencies required by Playwright/Chromium
-# This is the critical fix - missing dependencies cause silent crashes
+# Including fonts that Playwright --with-deps tries to install
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -31,20 +31,22 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libatspi2.0-0 \
     libxshmfence1 \
-    fonts-liberation \
-    libappindicator3-1 \
-    libnss3-tools \
     libx11-xcb1 \
     libxcb-dri3-0 \
     libxss1 \
+    # Fonts - using correct package names for Debian
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    fonts-unifont \
+    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers with all dependencies
-RUN playwright install chromium --with-deps
+# Install Playwright chromium browser only (no --with-deps since we installed deps above)
+RUN playwright install chromium
 
 # Copy application code
 COPY . .
@@ -60,5 +62,6 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Run the application with xvfb for virtual display
+# Run the application
 CMD ["python", "app.py"]
+
