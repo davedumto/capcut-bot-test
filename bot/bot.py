@@ -125,6 +125,19 @@ class CapCutPasswordResetBot:
                 '--disable-gl-drawing-for-tests',
                 '--use-gl=swiftshader',
                 '--in-process-gpu',
+                # Memory-saving flags for Render's container limits
+                '--single-process',
+                '--disable-shared-memory',
+                '--disable-site-isolation-trials',
+                '--disable-features=IsolateOrigins',
+                '--disable-features=site-per-process',
+                '--js-flags=--max-old-space-size=256',
+                '--disable-hang-monitor',
+                '--disable-prompt-on-repost',
+                '--disable-domain-reliability',
+                '--disable-component-update',
+                '--disable-client-side-phishing-detection',
+                '--no-zygote',
             ],
             # Add realistic headers
             extra_http_headers={
