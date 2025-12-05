@@ -13,18 +13,10 @@ from app.services.slots_service import slots_service
 import logging
 import sys
 import os
+import httpx
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-
-# Add the bot directory to Python path for importing our working bot
-# Path: backend/app/scheduler/jobs.py -> go up 3 levels to reach root, then into bot
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'bot'))
-
-try:
-    from bot import CapCutPasswordResetBot
-except ImportError:
-    logger.error("Could not import CapCutPasswordResetBot - check bot directory path")
-    CapCutPasswordResetBot = None
 
 
 def get_database_session():
@@ -63,20 +55,28 @@ async def session_start_job():
             try:
                 logger.info(f"Starting session {session.id} for {session.user_email}")
                 
-                # Use our working 14-step CapCut bot to reset password
-                if CapCutPasswordResetBot is None:
-                    logger.error("CapCutPasswordResetBot not available")
-                    continue
-                
-                bot = CapCutPasswordResetBot(
-                    capcut_email=os.getenv('CAPCUT_EMAIL'),
-                    gmail_email=os.getenv('GMAIL_EMAIL'),
-                    gmail_app_password=os.getenv('GMAIL_APP_PASSWORD'),
-                    headless=True  # Run in background for scheduler
-                )
-                
-                # Run the complete 14-step flow
-                success, new_password = await bot.run_complete_flow()
+                # Call bot service via HTTP to reset password
+                try:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            f"{settings.bot_service_url}/bot/reset-password",
+                            json={},  # Bot will use env vars for email and generate password
+                            timeout=300.0  # 5 minutes timeout for bot operations
+                        )
+                        
+                        if response.status_code == 200:
+                            bot_result = response.json()
+                            success = bot_result.get("success", False)
+                            new_password = bot_result.get("new_password")
+                        else:
+                            logger.error(f"Bot service returned status {response.status_code}: {response.text}")
+                            success = False
+                            new_password = None
+                            
+                except Exception as e:
+                    logger.error(f"Failed to call bot service: {e}")
+                    success = False
+                    new_password = None
                 
                 if success and new_password:
                     
@@ -151,20 +151,28 @@ async def session_end_job():
             try:
                 logger.info(f"Ending session {session.id} for {session.user_email}")
                 
-                # Use our working 14-step CapCut bot to reset password for next session
-                if CapCutPasswordResetBot is None:
-                    logger.error("CapCutPasswordResetBot not available")
-                    continue
-                
-                bot = CapCutPasswordResetBot(
-                    capcut_email=os.getenv('CAPCUT_EMAIL'),
-                    gmail_email=os.getenv('GMAIL_EMAIL'),
-                    gmail_app_password=os.getenv('GMAIL_APP_PASSWORD'),
-                    headless=True  # Run in background for scheduler
-                )
-                
-                # Run the complete 14-step flow to reset password
-                success, new_password = await bot.run_complete_flow()
+                # Call bot service via HTTP to reset password for next session
+                try:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            f"{settings.bot_service_url}/bot/reset-password",
+                            json={},  # Bot will use env vars for email and generate password
+                            timeout=300.0  # 5 minutes timeout for bot operations
+                        )
+                        
+                        if response.status_code == 200:
+                            bot_result = response.json()
+                            success = bot_result.get("success", False)
+                            new_password = bot_result.get("new_password")
+                        else:
+                            logger.error(f"Bot service returned status {response.status_code}: {response.text}")
+                            success = False
+                            new_password = None
+                            
+                except Exception as e:
+                    logger.error(f"Failed to call bot service: {e}")
+                    success = False
+                    new_password = None
                 
                 if success and new_password:
                     # Check for next session (starts right after this one ends)

@@ -83,7 +83,7 @@ export default function Home() {
             CapCut Pro Account Sharing
           </h1>
           <p className="text-lg text-darknavy">
-            Book your editing session (1.5 hours) - Available 24/7!
+            Book your editing session (1 hour 30 minutes) - Available 24/7!
           </p>
         </div>
 

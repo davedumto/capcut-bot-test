@@ -58,7 +58,7 @@ End: {end_formatted}
 You will be automatically logged out at {end_time_only}
 
 🔐 Your CapCut Credentials:
-Email: thehimspiredshop@gmail.com
+Email: davidejere2001@gmail.com
 Password: {password}
 
 📝 Instructions:
