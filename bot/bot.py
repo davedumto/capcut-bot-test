@@ -116,28 +116,7 @@ class CapCutPasswordResetBot:
                 '--disable-renderer-backgrounding',
                 '--disable-backgrounding-occluded-windows',
                 '--disable-features=TranslateUI',
-                '--disable-ipc-flooding-protection',
-                # GPU-related flags to fix EGL/graphics init in containers
-                '--disable-gpu',
-                '--disable-gpu-sandbox',
-                '--disable-software-rasterizer',
-                '--disable-gpu-compositing',
-                '--disable-gl-drawing-for-tests',
-                '--use-gl=swiftshader',
-                '--in-process-gpu',
-                # Memory-saving flags for Render's container limits
-                '--single-process',
-                '--disable-shared-memory',
-                '--disable-site-isolation-trials',
-                '--disable-features=IsolateOrigins',
-                '--disable-features=site-per-process',
-                '--js-flags=--max-old-space-size=256',
-                '--disable-hang-monitor',
-                '--disable-prompt-on-repost',
-                '--disable-domain-reliability',
-                '--disable-component-update',
-                '--disable-client-side-phishing-detection',
-                '--no-zygote',
+                '--disable-ipc-flooding-protection'
             ],
             # Add realistic headers
             extra_http_headers={
@@ -179,8 +158,11 @@ class CapCutPasswordResetBot:
         
     async def navigate_to_login(self):
         """Navigate to CapCut login page"""
-        await self.page.goto('https://www.capcut.com/login?redirect_url=https%3A%2F%2Fwww.capcut.com%2Fmy-edit', wait_until='networkidle')
-        await self.page.wait_for_load_state('networkidle')
+        # Use domcontentloaded instead of networkidle to avoid hanging on heavy SPAs
+        await self.page.goto('https://www.capcut.com/login?redirect_url=https%3A%2F%2Fwww.capcut.com%2Fmy-edit', wait_until='domcontentloaded', timeout=60000)
+        
+        # Wait for page to stabilize after initial load
+        await asyncio.sleep(3)
         
         # Handle cookies banner if present
         try:
