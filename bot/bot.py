@@ -127,7 +127,11 @@ class CapCutPasswordResetBot:
                 '--disable-in-process-stack-traces',
                 '--disable-logging',
                 '--disable-login-animations',
-                '--single-process'
+                '--single-process',
+                '--disable-accelerated-2d-canvas',
+                '--disable-accelerated-video-decode',
+                '--disable-gpu-rasterization',
+                '--disable-gpu-memory-buffer-video-frames'
             ],
             # Add realistic headers
             extra_http_headers={
