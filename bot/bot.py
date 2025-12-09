@@ -100,6 +100,7 @@ class CapCutPasswordResetBot:
             accept_downloads=False,
             ignore_https_errors=True,
             args=[
+                '--headless=new',  # Use new headless mode
                 '--no-first-run',
                 '--disable-blink-features=AutomationControlled',
                 '--disable-features=VizDisplayCompositor',
@@ -111,12 +112,22 @@ class CapCutPasswordResetBot:
                 '--disable-web-security',
                 '--no-default-browser-check',
                 '--no-sandbox',
+                '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-gpu-sandbox',
+                '--disable-software-rasterizer',
                 '--disable-background-timer-throttling',
                 '--disable-renderer-backgrounding',
                 '--disable-backgrounding-occluded-windows',
                 '--disable-features=TranslateUI',
-                '--disable-ipc-flooding-protection'
+                '--disable-ipc-flooding-protection',
+                '--disable-dbus',
+                '--disable-crash-reporter',
+                '--disable-in-process-stack-traces',
+                '--disable-logging',
+                '--disable-login-animations',
+                '--single-process'
             ],
             # Add realistic headers
             extra_http_headers={
