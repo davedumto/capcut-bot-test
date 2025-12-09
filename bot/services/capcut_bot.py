@@ -37,6 +37,7 @@ async def reset_password_forgot_flow(email: str, new_password: str) -> dict:
             browser = await p.chromium.launch(
                 headless=settings.HEADLESS,
                 args=[
+                    '--headless=new',  # Use new headless mode
                     '--no-first-run',
                     '--disable-blink-features=AutomationControlled',
                     '--disable-web-security',
@@ -52,8 +53,14 @@ async def reset_password_forgot_flow(email: str, new_password: str) -> dict:
                     '--disable-backgrounding-occluded-windows',
                     '--disable-renderer-backgrounding',
                     '--disable-ipc-flooding-protection',
-                    '--single-process',
-                    '--no-zygote'
+                    '--disable-dbus',
+                    '--disable-crash-reporter',
+                    '--disable-in-process-stack-traces',
+                    '--disable-logging',
+                    '--disable-login-animations',
+                    '--disable-background-networking',
+                    '--disable-default-apps',
+                    '--single-process'
                 ]
             )
             
