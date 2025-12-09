@@ -139,6 +139,43 @@ async def scheduler_status():
     }
 
 
+@app.get("/debug/sessions")
+async def debug_sessions():
+    """Debug endpoint to check sessions and timezones"""
+    from app.models.database import SessionLocal, Session as SessionModel
+    from datetime import datetime
+    
+    db = SessionLocal()
+    try:
+        sessions = db.query(SessionModel).all()
+        current_time = datetime.now()
+        current_utc = datetime.utcnow()
+        
+        session_data = []
+        for session in sessions:
+            session_data.append({
+                "id": session.id,
+                "user_name": session.user_name,
+                "user_email": session.user_email,
+                "start_time": str(session.start_time),
+                "start_time_type": str(type(session.start_time)),
+                "start_time_tzinfo": str(session.start_time.tzinfo) if hasattr(session.start_time, 'tzinfo') and session.start_time.tzinfo else "naive",
+                "end_time": str(session.end_time),
+                "status": session.status,
+                "slot_id": session.slot_id,
+                "comparison_local": session.start_time <= current_time,
+                "comparison_utc": session.start_time <= current_utc
+            })
+        
+        return {
+            "current_local_time": str(current_time),
+            "current_utc_time": str(current_utc),
+            "sessions": session_data
+        }
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
