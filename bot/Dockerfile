@@ -42,14 +42,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY bot/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright chromium browser only (no --with-deps since we installed deps above)
 RUN playwright install chromium
 
 # Copy application code
-COPY bot/ .
+COPY . .
 
 # Set environment variables for headless operation
 ENV HEADLESS=true
