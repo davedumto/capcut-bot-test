@@ -43,10 +43,6 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     libdbus-glib-1-2 \
     libxt6 \
-    # Additional graphics libraries (updated for newer Debian)
-    libgl1-mesa-dev \
-    libegl1-mesa \
-    libgles2-mesa \
     # Fonts - comprehensive font support
     fonts-liberation \
     fonts-noto-color-emoji \
