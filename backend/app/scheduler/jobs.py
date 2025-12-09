@@ -4,6 +4,7 @@ As specified in instructions.md Phase 5
 """
 
 from datetime import datetime
+import pytz
 from sqlalchemy.orm import Session
 from app.models.database import SessionLocal, Session as SessionModel, Password
 from app.services.bot_service import bot_service
@@ -43,7 +44,9 @@ async def session_start_job():
     db = None
     try:
         db = get_database_session()
-        current_time = datetime.now()
+        # Use West Africa Time (UTC+1)
+        wat_tz = pytz.timezone('Africa/Lagos')
+        current_time = datetime.now(wat_tz).replace(tzinfo=None)
         
         # Find sessions that should start
         pending_sessions = db.query(SessionModel).filter(
@@ -139,7 +142,9 @@ async def session_end_job():
     db = None
     try:
         db = get_database_session()
-        current_time = datetime.now()
+        # Use West Africa Time (UTC+1)
+        wat_tz = pytz.timezone('Africa/Lagos')
+        current_time = datetime.now(wat_tz).replace(tzinfo=None)
         
         # Find sessions that should end
         active_sessions = db.query(SessionModel).filter(
@@ -235,7 +240,9 @@ async def midnight_reset_job():
     db = None
     try:
         db = get_database_session()
-        current_time = datetime.now()
+        # Use West Africa Time (UTC+1)
+        wat_tz = pytz.timezone('Africa/Lagos')
+        current_time = datetime.now(wat_tz).replace(tzinfo=None)
         
         logger.info(f"Starting midnight reset job at {current_time}")
         
