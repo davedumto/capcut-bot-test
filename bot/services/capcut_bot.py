@@ -45,7 +45,15 @@ async def reset_password_forgot_flow(email: str, new_password: str) -> dict:
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--disable-gpu'
+                    '--disable-gpu',
+                    '--disable-gpu-sandbox',
+                    '--disable-software-rasterizer',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding',
+                    '--disable-ipc-flooding-protection',
+                    '--single-process',
+                    '--no-zygote'
                 ]
             )
             
