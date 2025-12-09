@@ -96,8 +96,11 @@ class SlotsService:
     
     def reset_daily_slots(self, db: Session, target_date: datetime = None) -> None:
         """
-        Reset slots for midnight - mark all as available and clear old sessions.
+        Reset slots for midnight - UPDATE all slots with new day's date and times.
         This happens every day at 12:00 AM.
+        
+        Since slot IDs are fixed (slot_1 through slot_16), we UPDATE existing slots
+        rather than creating new ones.
         """
         if target_date is None:
             target_date = datetime.now()
@@ -115,30 +118,49 @@ class SlotsService:
         deleted_sessions = old_sessions.count()
         old_sessions.delete()
         
-        # 2. Reset all slots for current date to available
-        updated_slots = db.query(TimeSlot).filter(
-            TimeSlot.date == day_start
-        ).update({"available": True})
-        
-        # 3. If no slots exist for today, create them
-        if updated_slots == 0:
-            self.initialize_daily_slots(db, target_date)
-            updated_slots = 16
+        # 2. Update all 16 slots with new day's date and times
+        updated_count = 0
+        for slot_number in range(1, 17):
+            slot_id = f"slot_{slot_number}"
+            
+            # Calculate new start/end times for this slot
+            slot_start = day_start + timedelta(minutes=90 * (slot_number - 1))
+            slot_end = slot_start + timedelta(minutes=90)
+            
+            # Try to get existing slot
+            existing_slot = db.query(TimeSlot).filter(TimeSlot.id == slot_id).first()
+            
+            if existing_slot:
+                # UPDATE existing slot with new date/times and mark available
+                existing_slot.start_time = slot_start
+                existing_slot.end_time = slot_end
+                existing_slot.date = day_start
+                existing_slot.available = True
+                updated_count += 1
+            else:
+                # CREATE new slot if it doesn't exist (first run)
+                new_slot = TimeSlot(
+                    id=slot_id,
+                    slot_number=slot_number,
+                    start_time=slot_start,
+                    end_time=slot_end,
+                    date=day_start,
+                    available=True
+                )
+                db.add(new_slot)
+                updated_count += 1
         
         db.commit()
         
-        logger.info(f"Daily reset complete: {updated_slots} slots reset, {deleted_sessions} old sessions cleared")
+        logger.info(f"Daily reset complete: {updated_count} slots reset for {day_start.date()}, {deleted_sessions} old sessions cleared")
     
     def get_slot_by_id(self, db: Session, slot_id: str) -> TimeSlot:
         """
         Get a specific slot by ID (e.g., 'slot_1', 'slot_2')
-        Returns current day's slot by default
+        Since slot IDs are unique across the system, no date filter needed.
         """
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
         return db.query(TimeSlot).filter(
-            TimeSlot.id == slot_id,
-            TimeSlot.date == today
+            TimeSlot.id == slot_id
         ).first()
     
     def mark_slot_booked(self, db: Session, slot_id: str) -> bool:
@@ -180,21 +202,23 @@ class SlotsService:
     
     def get_available_slots(self, db: Session, target_date: datetime = None) -> list[TimeSlot]:
         """
-        Get all available slots for a specific date.
-        Compatible with existing frontend expectations.
+        Get all available slots for today.
+        If slots don't exist or are from a previous day, reset them.
         """
         if target_date is None:
             target_date = datetime.now()
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Ensure slots exist for this date
-        self.initialize_daily_slots(db, target_date)
+        # Get all slots ordered by slot_number
+        slots = db.query(TimeSlot).order_by(TimeSlot.slot_number).all()
         
-        # Get all slots for this date, ordered by slot_number
-        slots = db.query(TimeSlot).filter(
-            TimeSlot.date == day_start
-        ).order_by(TimeSlot.slot_number).all()
+        # If no slots exist or first slot has wrong date, reset/create them
+        if not slots or (slots and slots[0].date != day_start):
+            logger.info(f"Slots need reset: found {len(slots)} slots, date mismatch or empty")
+            self.reset_daily_slots(db, target_date)
+            # Re-fetch after reset
+            slots = db.query(TimeSlot).order_by(TimeSlot.slot_number).all()
         
         return slots
 
