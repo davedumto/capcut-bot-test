@@ -20,7 +20,7 @@ def fix_database_schema():
     try:
         engine = create_engine(database_url)
         
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             # Check if slot_id column already exists
             print("🔍 Checking if slot_id column exists...")
             
@@ -60,11 +60,10 @@ def fix_database_schema():
                 else:
                     raise
             
-            # Commit the changes
-            conn.commit()
             print("✅ Database schema updated successfully!")
             
-            # Verify the column was added
+        # Verify the column was added (separate connection for verification)
+        with engine.connect() as conn:
             result = conn.execute(text("""
                 SELECT column_name, data_type, is_nullable
                 FROM information_schema.columns 
