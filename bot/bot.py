@@ -89,62 +89,142 @@ class CapCutPasswordResetBot:
         temp_dir = tempfile.mkdtemp(prefix="capcut_bot_")
         print(f"🕵️ Creating incognito session with temp profile: {temp_dir}")
         
-        # Launch browser with temporary user data dir (true incognito equivalent)
-        self.browser = await playwright.chromium.launch_persistent_context(
-            user_data_dir=temp_dir,
-            headless=self.headless,
-            user_agent=selected_user_agent,
-            viewport=selected_viewport,
-            locale="en-US",
-            timezone_id="America/New_York",
-            accept_downloads=False,
-            ignore_https_errors=True,
-            args=[
-                '--headless=new',  # Use new headless mode
-                '--no-first-run',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=VizDisplayCompositor',
-                '--disable-background-networking',
-                '--disable-default-apps',
-                '--disable-extensions',
-                '--disable-sync',
-                '--disable-translate',
-                '--disable-web-security',
-                '--no-default-browser-check',
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-gpu-sandbox',
-                '--disable-software-rasterizer',
-                '--disable-background-timer-throttling',
-                '--disable-renderer-backgrounding',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-features=TranslateUI',
-                '--disable-ipc-flooding-protection',
-                '--disable-dbus',
-                '--disable-crash-reporter',
-                '--disable-in-process-stack-traces',
-                '--disable-logging',
-                '--disable-login-animations',
-                '--single-process',
-                '--disable-accelerated-2d-canvas',
-                '--disable-accelerated-video-decode',
-                '--disable-gpu-rasterization',
-                '--disable-gpu-memory-buffer-video-frames'
-            ],
-            # Add realistic headers
-            extra_http_headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.5",
-                "Accept-Encoding": "gzip, deflate",
-                "DNT": "1",
-                "Connection": "keep-alive",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "none"
-            }
-        )
+        # Try Firefox first as it's more reliable in VPS environments
+        try:
+            print("🦊 Attempting Firefox browser (more VPS-friendly)...")
+            self.browser = await playwright.firefox.launch_persistent_context(
+                user_data_dir=temp_dir,
+                headless=self.headless,
+                user_agent=selected_user_agent,
+                viewport=selected_viewport,
+                locale="en-US",
+                timezone_id="America/New_York",
+                accept_downloads=False,
+                ignore_https_errors=True,
+                # Firefox doesn't need as many arguments and is more stable in Docker
+                args=[
+                    '--no-remote',
+                    '--no-first-run',
+                    '--disable-dev-tools',
+                    '--disable-extensions'
+                ] if self.headless else [],
+                # Add realistic headers
+                extra_http_headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Accept-Encoding": "gzip, deflate",
+                    "DNT": "1",
+                    "Connection": "keep-alive",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none"
+                }
+            )
+            print("✅ Firefox browser launched successfully")
+        except Exception as firefox_error:
+            print(f"⚠️  Firefox failed: {firefox_error}")
+            print("🔄 Falling back to Chrome with maximum stability settings...")
+            
+            # Fallback to Chrome with extreme stability settings for VPS
+            self.browser = await playwright.chromium.launch_persistent_context(
+                user_data_dir=temp_dir,
+                headless=True,  # Force headless for VPS stability
+                user_agent=selected_user_agent,
+                viewport=selected_viewport,
+                locale="en-US",
+                timezone_id="America/New_York",
+                accept_downloads=False,
+                ignore_https_errors=True,
+                args=[
+                    # Core headless settings
+                    '--headless=new',
+                    '--virtual-time-budget=5000',
+                    '--run-all-compositor-stages-before-draw',
+                    
+                    # Disable all GPU and hardware acceleration
+                    '--disable-gpu',
+                    '--disable-gpu-sandbox',
+                    '--disable-software-rasterizer',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-accelerated-video-decode',
+                    '--disable-accelerated-video-encode',
+                    '--disable-gpu-memory-buffer-video-frames',
+                    '--disable-gpu-rasterization',
+                    '--disable-features=VizDisplayCompositor,VizHitTestSurfaceLayer',
+                    '--use-gl=swiftshader-webgl',
+                    '--use-angle=swiftshader',
+                    
+                    # Memory and process management
+                    '--single-process',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--memory-pressure-off',
+                    '--max_old_space_size=4096',
+                    
+                    # Disable unnecessary features
+                    '--no-first-run',
+                    '--disable-extensions',
+                    '--disable-plugins',
+                    '--disable-background-timer-throttling',
+                    '--disable-renderer-backgrounding',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-background-networking',
+                    '--disable-default-apps',
+                    '--disable-sync',
+                    '--disable-translate',
+                    '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+                    '--disable-ipc-flooding-protection',
+                    '--disable-hang-monitor',
+                    '--disable-prompt-on-repost',
+                    '--disable-domain-reliability',
+                    '--disable-component-extensions-with-background-pages',
+                    
+                    # Audio and media
+                    '--mute-audio',
+                    '--disable-audio-output',
+                    
+                    # Logging and debugging (minimize noise)
+                    '--disable-logging',
+                    '--silent',
+                    '--disable-crash-reporter',
+                    '--disable-in-process-stack-traces',
+                    '--log-level=3',
+                    
+                    # Automation detection bypass
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-web-security',
+                    '--disable-features=VizDisplayCompositor',
+                    '--no-default-browser-check',
+                    '--disable-login-animations',
+                    
+                    # Additional stability flags for VPS
+                    '--disable-dbus',
+                    '--disable-dev-tools',
+                    '--disable-infobars',
+                    '--disable-notifications',
+                    '--disable-popup-blocking',
+                    '--disable-save-password-bubble',
+                    '--disable-session-crashed-bubble',
+                    '--disable-password-generation',
+                    '--disable-permissions-api',
+                    '--ignore-certificate-errors',
+                    '--ignore-ssl-errors',
+                    '--ignore-certificate-errors-spki-list'
+                ],
+                # Add realistic headers
+                extra_http_headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Accept-Encoding": "gzip, deflate",
+                    "DNT": "1",
+                    "Connection": "keep-alive",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none"
+                }
+            )
+            print("✅ Chrome browser launched with VPS-optimized settings")
         
         # Store temp dir for cleanup
         self.temp_dir = temp_dir
