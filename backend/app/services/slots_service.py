@@ -7,8 +7,16 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app.models.database import TimeSlot, Session as SessionModel
 import logging
+import pytz
 
 logger = logging.getLogger(__name__)
+
+# West Africa Time (UTC+1) - same timezone as user
+WAT_TZ = pytz.timezone('Africa/Lagos')
+
+def get_wat_now():
+    """Get current time in WAT timezone (naive datetime for DB storage)"""
+    return datetime.now(WAT_TZ).replace(tzinfo=None)
 
 class SlotsService:
     
@@ -25,7 +33,7 @@ class SlotsService:
         16. 10:30 PM - 12:00 AM
         """
         if target_date is None:
-            target_date = datetime.now()
+            target_date = get_wat_now()
         
         # Start at midnight of the target date
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -59,7 +67,7 @@ class SlotsService:
         Safe to call multiple times - will not duplicate slots.
         """
         if target_date is None:
-            target_date = datetime.now()
+            target_date = get_wat_now()
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
@@ -103,7 +111,7 @@ class SlotsService:
         rather than creating new ones.
         """
         if target_date is None:
-            target_date = datetime.now()
+            target_date = get_wat_now()
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
@@ -206,7 +214,7 @@ class SlotsService:
         If slots don't exist or are from a previous day, reset them.
         """
         if target_date is None:
-            target_date = datetime.now()
+            target_date = get_wat_now()
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         

@@ -6,11 +6,18 @@ As specified in instructions.md
 import secrets
 import string
 import bcrypt
+import pytz
 from cryptography.fernet import Fernet
 from app.core.config import settings
 import logging
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+# West Africa Time (UTC+1)
+WAT_TZ = pytz.timezone('Africa/Lagos')
+def get_wat_now():
+    return datetime.now(WAT_TZ).replace(tzinfo=None)
 
 
 class PasswordService:
@@ -109,10 +116,8 @@ class PasswordService:
         As per instructions.md: Delete plain passwords after 1 hour
         """
         try:
-            from datetime import datetime, timedelta
-            
-            # Set expiration time to 1 hour from now
-            expires_at = datetime.now() + timedelta(hours=1)
+            # Set expiration time to 1 hour from now (WAT)
+            expires_at = get_wat_now() + timedelta(hours=1)
             
             return {
                 "password_hash": self.hash_password(password),
@@ -131,12 +136,11 @@ class PasswordService:
         As per instructions.md: Delete plain passwords after 1 hour
         """
         try:
-            from datetime import datetime
             from app.models.database import SessionLocal, Password
             
             db = SessionLocal()
             try:
-                current_time = datetime.now()
+                current_time = get_wat_now()
                 
                 # Find expired passwords
                 expired_passwords = db.query(Password).filter(

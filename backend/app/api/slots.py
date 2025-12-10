@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+import pytz
 from app.models.database import get_db, Session as SessionModel, TimeSlot
 from app.models.schemas import SlotsResponse, TimeSlotSchema
 from app.services.slots_service import slots_service
 
 router = APIRouter()
+
+# West Africa Time (UTC+1)
+WAT_TZ = pytz.timezone('Africa/Lagos')
+def get_wat_now():
+    return datetime.now(WAT_TZ).replace(tzinfo=None)
 
 
 @router.get("/slots", response_model=SlotsResponse)
@@ -19,7 +25,7 @@ async def get_available_slots(db: Session = Depends(get_db)):
     - Returns stored TimeSlot data with real availability status
     """
     try:
-        current_time = datetime.now()
+        current_time = get_wat_now()
         
         # Get stored slots from database using slots_service
         # This automatically initializes slots if they don't exist

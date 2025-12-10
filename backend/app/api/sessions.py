@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
+import pytz
 from app.models.database import get_db, Session as SessionModel
 from app.models.schemas import ActiveSessionResponse, SessionDetailsResponse
 from typing import Optional
 
 router = APIRouter()
+
+# West Africa Time (UTC+1)
+WAT_TZ = pytz.timezone('Africa/Lagos')
+def get_wat_now():
+    return datetime.now(WAT_TZ).replace(tzinfo=None)
 
 
 @router.get("/sessions/active", response_model=Optional[ActiveSessionResponse])
@@ -15,7 +21,7 @@ async def get_active_session(db: Session = Depends(get_db)):
     As per instructions.md API format
     """
     try:
-        current_time = datetime.now()
+        current_time = get_wat_now()
         
         # Find session that is currently active (current time is between start and end)
         active_session = db.query(SessionModel).filter(

@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+import pytz
 from app.models.database import get_db, User, Session as SessionModel, TimeSlot
 from app.models.schemas import BookingRequest, BookingResponse
 from app.services.slots_service import slots_service
 
 router = APIRouter()
+
+# West Africa Time (UTC+1)
+WAT_TZ = pytz.timezone('Africa/Lagos')
+def get_wat_now():
+    return datetime.now(WAT_TZ).replace(tzinfo=None)
 
 
 @router.post("/bookings", response_model=BookingResponse)
@@ -40,7 +46,7 @@ async def create_booking(booking: BookingRequest, db: Session = Depends(get_db))
             )
         
         # Verify slot hasn't already started
-        current_time = datetime.now()
+        current_time = get_wat_now()
         if slot_start <= current_time:
             raise HTTPException(
                 status_code=400,
@@ -48,7 +54,7 @@ async def create_booking(booking: BookingRequest, db: Session = Depends(get_db))
             )
         
         # Validation 1: Check if email hasn't booked today
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = get_wat_now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
         
         existing_email_booking = db.query(SessionModel).filter(
