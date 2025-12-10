@@ -115,16 +115,21 @@ class SlotsService:
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # 1. Clear old completed sessions from previous day
+        # 1. Clear old completed sessions from previous day (and their passwords)
         previous_day = day_start - timedelta(days=1)
         old_sessions = db.query(SessionModel).filter(
             SessionModel.start_time >= previous_day,
             SessionModel.start_time < day_start,
             SessionModel.status.in_(["completed", "no-show"])
-        )
+        ).all()
         
-        deleted_sessions = old_sessions.count()
-        old_sessions.delete()
+        deleted_sessions = len(old_sessions)
+        
+        # Delete passwords first (to avoid foreign key constraint violation)
+        from app.models.database import Password
+        for session in old_sessions:
+            db.query(Password).filter(Password.session_id == session.id).delete()
+            db.delete(session)
         
         # 2. Update all 16 slots with new day's date and times
         updated_count = 0
