@@ -168,23 +168,17 @@ export default function SlotSelector({ userDetails, onBookingComplete }: SlotSel
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.03 }}
         onClick={isClickable ? () => handleSlotSelection(slot) : undefined}
-        className={`p-4 text-center rounded-xl transition-all duration-200 border min-h-[110px] flex flex-col justify-between ${bgClass} ${borderClass} ${
+        className={`p-3 text-center rounded-xl transition-all duration-200 border flex flex-col items-center justify-center gap-1 min-h-[120px] ${bgClass} ${borderClass} ${
           isClickable ? 'cursor-pointer group' : 'cursor-not-allowed opacity-60'
         }`}
         disabled={!isClickable}
         whileHover={isClickable ? { scale: 1.02 } : {}}
         whileTap={isClickable ? { scale: 0.98 } : {}}
       >
-        <div className={`text-lg font-bold ${isPast ? 'text-white/40' : 'text-white'}`}>
-          {formatTime(slot.start_time)}
+        <div className={`text-sm font-bold ${isPast ? 'text-white/40' : 'text-white'}`}>
+          {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
         </div>
-        <div className={`text-xs ${isPast ? 'text-white/30' : 'text-white/50'}`}>
-          to
-        </div>
-        <div className={`text-lg font-bold ${isPast ? 'text-white/40' : 'text-white'}`}>
-          {formatTime(slot.end_time)}
-        </div>
-        <div className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${statusBadge.bg} ${statusBadge.text}`}>
+        <div className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}>
           {statusBadge.label}
         </div>
       </motion.button>
@@ -345,7 +339,7 @@ export default function SlotSelector({ userDetails, onBookingComplete }: SlotSel
                   <span className="text-white/40 font-normal text-sm">({period.timeRange})</span>
                 </h3>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
                   {periodSlots.map((slot, index) => renderSlotCard(slot, index))}
                 </div>
               </div>
