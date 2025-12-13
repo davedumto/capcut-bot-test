@@ -28,16 +28,26 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/">
-            <h1 className="text-3xl font-bold mb-2">Slotio</h1>
-          </Link>
-          <p className="text-white/60">Enter Email to signin or signup</p>
-        </div>
+    <div className="min-h-screen bg-background text-white flex flex-col px-4">
+      {/* Header - Back button left, Logo center */}
+      <div className="w-full max-w-5xl mx-auto pt-6 flex items-center">
+        <Link href="/" className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          <span className="text-sm font-medium">Back</span>
+        </Link>
+        <h1 className="flex-1 text-center text-4xl font-bold text-white tracking-tight pr-16">Slotio</h1>
+      </div>
 
-        <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-8">
+      {/* Auth form container */}
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <p className="text-white/60">Enter Email to signin or signup</p>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-8">
           {step === 'email' && (
             <EmailCheck onRouteDetected={handleRouteDetected} />
           )}
@@ -94,6 +104,7 @@ export default function AuthPage() {
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

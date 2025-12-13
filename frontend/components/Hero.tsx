@@ -3,6 +3,9 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, Lock, Zap, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+const GlassSurface = dynamic(() => import('./GlassSurface'), { ssr: false });
 
 interface HeroProps {
   onBookNow: () => void;
@@ -12,29 +15,38 @@ export function Hero({ onBookNow }: HeroProps) {
   const router = useRouter();
   
   return (
-    <section className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden px-4 pt-20">
-      {/* Navbar */}
-      <nav className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full z-50">
-        <div className="flex items-center">
-          <span className="font-display text-2xl font-bold text-white tracking-tight">
-            Slotio
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => router.push('/auth')}
-            className="text-white/70 hover:text-white transition-colors font-medium text-sm"
-          >
-            Login
-          </button>
-          <button 
-            onClick={() => router.push('/auth')}
-            className="bg-primary text-background px-5 py-2 rounded-full font-semibold text-sm hover:bg-primary/90 transition-colors"
-          >
-            Get Started
-          </button>
-        </div>
-      </nav>
+    <section className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 pt-24">
+      {/* Sticky Glass Navbar */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-5xl">
+        <GlassSurface
+          width="100%"
+          height={80}
+          borderRadius={28}
+          blur={16}
+          saturation={1.5}
+          className="px-2"
+        >
+          <nav className="flex items-center justify-between w-full pl-6">
+            <span className="font-display text-4xl font-bold text-white tracking-tight">
+              Slotio
+            </span>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => router.push('/auth')}
+                className="text-white/70 hover:text-white transition-colors font-medium text-lg px-3 py-1.5"
+              >
+                Login
+              </button>
+              <button 
+                onClick={() => router.push('/auth')}
+                className="bg-primary text-background px-4 py-1.5 rounded-xl font-semibold text-lg hover:bg-primary/90 transition-colors"
+              >
+                Get Started
+              </button>
+            </div>
+          </nav>
+        </GlassSurface>
+      </div>
 
       {/* Background Animated Gradient */}
       <motion.div
@@ -72,9 +84,7 @@ export function Hero({ onBookNow }: HeroProps) {
           className="space-y-4"
         >
           <h1 className="font-display text-5xl md:text-7xl font-bold leading-tight tracking-tight text-white">
-            Stop Paying ₦15,000/month for CapCut Pro.
-            <br />
-            Pay ₦500 when you actually need it.
+            CapCut Pro. ₦500. Not ₦17,000.
           </h1>
         </motion.div>
 
@@ -83,10 +93,10 @@ export function Hero({ onBookNow }: HeroProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-lg md:text-xl text-white/70 max-w-3xl mx-auto leading-relaxed"
+          className="text-lg md:text-2xl text-white/80 max-w-3xl mx-auto leading-relaxed font-medium tracking-wide"
+          style={{ fontFamily: "'Syne', sans-serif" }}
         >
-          Why pay for 30 days when you only edit for 3 hours? Get instant CapCut Pro access for just ₦500 per session.
-          Your credentials arrive in 60 seconds.
+          Why pay for 30 days when you only edit for 3 hours? Get instant CapCut Pro access for just <span className="text-primary font-bold">₦500</span> per session.
         </motion.p>
 
         {/* CTAs */}
@@ -105,26 +115,7 @@ export function Hero({ onBookNow }: HeroProps) {
           </button>
         </motion.div>
 
-        {/* Trust Badges */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.8 }}
-          className="flex flex-wrap items-center justify-center gap-6 text-sm text-white/60 pt-4"
-        >
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-primary" />
-            <span>Secure payment via Paystack</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-accent" />
-            <span>Access in under 60 seconds</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-green-500" />
-            <span>No subscription trap</span>
-          </div>
-        </motion.div>
+
       </div>
     </section>
   );

@@ -5,8 +5,14 @@ from sqlalchemy.sql import func
 from datetime import datetime
 from app.core.config import settings
 
-# Database setup
-engine = create_engine(settings.database_url)
+# Database setup with production-ready connection pooling
+engine = create_engine(
+    settings.database_url,
+    pool_size=10,           # Max persistent connections
+    max_overflow=20,        # Extra connections under load
+    pool_pre_ping=True,     # Check connection health
+    pool_recycle=3600       # Recycle connections hourly
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

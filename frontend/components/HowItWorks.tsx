@@ -36,7 +36,7 @@ const steps = [
 
 export function HowItWorks({ onBookNow }: HowItWorksProps) {
   return (
-    <section className="py-24 px-4 relative w-full">
+    <section id="how-it-works" className="py-24 px-4 relative w-full">
       <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

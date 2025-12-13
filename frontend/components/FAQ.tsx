@@ -19,19 +19,11 @@ const faqs = [
   },
   {
     question: "What happens when my session ends?",
-    answer: "Your access automatically ends after 90 minutes. The CapCut account password is reset for security, and the slot becomes available for the next user. You'll be logged out automatically."
-  },
-  {
-    question: "Can I book a slot in advance?",
-    answer: "Slots are available for same-day booking only. All slots reset daily, so you can book any available slot for today. Check back tomorrow for the next day's slots."
-  },
-  {
-    question: "How many slots are available per day?",
-    answer: "We have 16 time slots available daily, starting from early morning to late night. You can see all available slots when you book."
+    answer: "Your access automatically ends after 90 minutes. The CapCut account password is reset for security, and the slot becomes available for the next user."
   },
   {
     question: "Is this secure and legal?",
-    answer: "Yes. You're paying for timed access to a shared CapCut Pro account—similar to how coworking spaces rent desks by the hour. Each session uses a fresh password for security, and your access is completely isolated."
+    answer: "Yes. You're paying for timed access to a shared CapCut Pro account—similar to how coworking spaces rent desks by the hour. Each session uses a fresh password for security."
   }
 ];
 

@@ -50,7 +50,7 @@ export function Pricing() {
   ]
 
   return (
-    <section className="relative w-full py-20 px-4 overflow-hidden">
+    <section id="pricing" className="relative w-full py-20 px-4 overflow-hidden">
       {/* Background gradient */}
       <motion.div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-gradient-radial from-primary/10 via-accent/5 to-transparent blur-3xl -z-10"

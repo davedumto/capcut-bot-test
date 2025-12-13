@@ -19,14 +19,14 @@ class AdminLoginRequest(BaseModel):
 async def admin_login(req: AdminLoginRequest, response: Response):
     """Admin login endpoint - credentials from environment variables"""
     if req.email == settings.admin_email and req.password == settings.admin_password:
-        # Set admin session cookie
+        # Set admin session cookie - 1 hour expiry for security
         response.set_cookie(
             key="admin_session",
             value="authenticated",
             httponly=True,
             samesite="lax",
             secure=settings.is_production(),  # HTTPS only in production
-            max_age=86400,  # 24 hours
+            max_age=3600,  # 1 hour (was 24 hours)
             path="/"
         )
         return {"success": True, "message": "Login successful"}
