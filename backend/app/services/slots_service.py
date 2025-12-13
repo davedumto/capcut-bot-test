@@ -20,15 +20,19 @@ def get_wat_now():
 
 class SlotsService:
     
-    def generate_daily_slots(self, db: Session, target_date: datetime = None) -> list[TimeSlot]:
+    def generate_daily_slots(self, db: Session, target_date: datetime = None, tenant_id: int = None) -> list[TimeSlot]:
         """
         Generate 16 slots for a 24-hour period (12:00 AM - 12:00 AM)
         Each slot is 1.5 hours (90 minutes)
         
+        Args:
+            db: Database session
+            target_date: Target date for slots
+            tenant_id: Manager's tenant ID (None = Slotio pool)
+        
         Slot Schedule:
         1. 12:00 AM - 1:30 AM
         2. 1:30 AM - 3:00 AM  
-        3. 3:00 AM - 4:30 AM
         ...continuing every 1.5 hours...
         16. 10:30 PM - 12:00 AM
         """
@@ -40,13 +44,16 @@ class SlotsService:
         
         slots = []
         
+        # Slot ID prefix based on tenant
+        id_prefix = f"tenant_{tenant_id}_" if tenant_id else ""
+        
         for slot_number in range(1, 17):  # 16 slots total
             # Each slot starts 90 minutes after the previous
             slot_start = day_start + timedelta(minutes=90 * (slot_number - 1))
             slot_end = slot_start + timedelta(minutes=90)
             
-            # Create slot with familiar ID format (slot_1, slot_2, etc.)
-            slot_id = f"slot_{slot_number}"
+            # Create slot with tenant-prefixed ID (e.g., tenant_5_slot_1 or slot_1 for Slotio)
+            slot_id = f"{id_prefix}slot_{slot_number}"
             
             slot = TimeSlot(
                 id=slot_id,
@@ -54,34 +61,42 @@ class SlotsService:
                 start_time=slot_start,
                 end_time=slot_end,
                 date=day_start,
-                available=True
+                available=True,
+                tenant_id=tenant_id
             )
             
             slots.append(slot)
             
         return slots
     
-    def initialize_daily_slots(self, db: Session, target_date: datetime = None) -> None:
+    def initialize_daily_slots(self, db: Session, target_date: datetime = None, tenant_id: int = None) -> None:
         """
-        Initialize slots for a specific date.
+        Initialize slots for a specific date and tenant.
         Safe to call multiple times - will not duplicate slots.
+        
+        Args:
+            db: Database session
+            target_date: Target date for slots
+            tenant_id: Manager's tenant ID (None = Slotio pool)
         """
         if target_date is None:
             target_date = get_wat_now()
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Check if slots already exist for this date
+        # Check if slots already exist for this date AND tenant
         existing_slots = db.query(TimeSlot).filter(
-            TimeSlot.date == day_start
+            TimeSlot.date == day_start,
+            TimeSlot.tenant_id == tenant_id
         ).count()
         
         if existing_slots > 0:
-            logger.info(f"Slots already exist for {day_start.date()}, skipping initialization")
+            pool_name = f"tenant {tenant_id}" if tenant_id else "Slotio"
+            logger.info(f"Slots already exist for {day_start.date()} ({pool_name}), skipping initialization")
             return
         
         # Generate and save new slots one by one to handle any conflicts
-        slots = self.generate_daily_slots(db, target_date)
+        slots = self.generate_daily_slots(db, target_date, tenant_id=tenant_id)
         
         for slot in slots:
             try:
@@ -97,7 +112,8 @@ class SlotsService:
         
         try:
             db.commit()
-            logger.info(f"Created slots for {day_start.date()}")
+            pool_name = f"tenant {tenant_id}" if tenant_id else "Slotio"
+            logger.info(f"Created slots for {day_start.date()} ({pool_name})")
         except Exception as e:
             logger.error(f"Error committing slots: {e}")
             db.rollback()
@@ -109,27 +125,26 @@ class SlotsService:
         
         Since slot IDs are fixed (slot_1 through slot_16), we UPDATE existing slots
         rather than creating new ones.
+        
+        IMPORTANT: We keep sessions for analytics, just clear slot associations
         """
         if target_date is None:
             target_date = get_wat_now()
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # 1. Clear old completed sessions from previous day (and their passwords)
-        previous_day = day_start - timedelta(days=1)
+        # 1. Mark old pending/active sessions as completed (don't delete - keep for analytics!)
         old_sessions = db.query(SessionModel).filter(
-            SessionModel.start_time >= previous_day,
             SessionModel.start_time < day_start,
-            SessionModel.status.in_(["completed", "no-show"])
+            SessionModel.status.in_(["pending", "active"])
         ).all()
         
-        deleted_sessions = len(old_sessions)
+        completed_count = len(old_sessions)
         
-        # Delete passwords first (to avoid foreign key constraint violation)
-        from app.models.database import Password
+        # Mark as completed and clear slot association
         for session in old_sessions:
-            db.query(Password).filter(Password.session_id == session.id).delete()
-            db.delete(session)
+            session.status = "completed"
+            session.slot_id = None  # Clear slot association so slots are free
         
         # 2. Update all 16 slots with new day's date and times
         updated_count = 0
@@ -213,25 +228,35 @@ class SlotsService:
         logger.info(f"Marked slot {slot_id} as available")
         return True
     
-    def get_available_slots(self, db: Session, target_date: datetime = None) -> list[TimeSlot]:
+    def get_available_slots(self, db: Session, target_date: datetime = None, tenant_id: int = None) -> list[TimeSlot]:
         """
-        Get all available slots for today.
+        Get all available slots for today for a specific tenant pool.
         If slots don't exist or are from a previous day, reset them.
+        
+        Args:
+            db: Database session
+            target_date: Target date for slots
+            tenant_id: Manager's tenant ID (None = Slotio pool)
         """
         if target_date is None:
             target_date = get_wat_now()
         
         day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Get all slots ordered by slot_number
-        slots = db.query(TimeSlot).order_by(TimeSlot.slot_number).all()
+        # Get all slots for this tenant ordered by slot_number
+        slots = db.query(TimeSlot).filter(
+            TimeSlot.tenant_id == tenant_id
+        ).order_by(TimeSlot.slot_number).all()
         
         # If no slots exist or first slot has wrong date, reset/create them
         if not slots or (slots and slots[0].date != day_start):
-            logger.info(f"Slots need reset: found {len(slots)} slots, date mismatch or empty")
-            self.reset_daily_slots(db, target_date)
+            pool_name = f"tenant {tenant_id}" if tenant_id else "Slotio"
+            logger.info(f"Slots need reset for {pool_name}: found {len(slots)} slots, date mismatch or empty")
+            self.initialize_daily_slots(db, target_date, tenant_id=tenant_id)
             # Re-fetch after reset
-            slots = db.query(TimeSlot).order_by(TimeSlot.slot_number).all()
+            slots = db.query(TimeSlot).filter(
+                TimeSlot.tenant_id == tenant_id
+            ).order_by(TimeSlot.slot_number).all()
         
         return slots
 

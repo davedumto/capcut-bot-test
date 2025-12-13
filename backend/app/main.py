@@ -8,10 +8,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from app.api import slots, bookings, sessions
+from app.api import slots, bookings, sessions, auth, users, managers, admin, payments, bot_jobs, complete_booking, manager_subscription, bot_health, admin_auth
 from app.models.database import create_tables
 from app.core.config import settings
 from app.scheduler.jobs import session_start_job, session_end_job
+from app.middleware.security import SecurityHeadersMiddleware
+from app.middleware.request_limits import RequestSizeLimitMiddleware
+from app.middleware.https_redirect import HTTPSRedirectMiddleware
+from app.core.rate_limiter import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 import logging
 
 # Configure logging
@@ -28,16 +34,40 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Add SlowAPI rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add HTTPS Redirect Middleware (production only)
+app.add_middleware(HTTPSRedirectMiddleware)
+
+# Add Request Size Limit Middleware (10MB max)
+app.add_middleware(RequestSizeLimitMiddleware, max_size=10 * 1024 * 1024)
+
+# Add Security Headers Middleware (add FIRST for all responses)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Configure CORS - environment-based origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],  # Frontend URL
+    allow_origins=settings.get_cors_origins(),  # Dynamic based on environment
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # Explicit methods
     allow_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Include API routes
+app.include_router(auth.router, prefix="/api", tags=["auth"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(managers.router, prefix="/api/managers", tags=["managers"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(admin_auth.router, prefix="/api/admin", tags=["admin-auth"])
+app.include_router(bot_health.router, prefix="/api", tags=["bot-health"])
+app.include_router(payments.router, prefix="/api/payments", tags=["payments"])
+app.include_router(bot_jobs.router, prefix="/api/bot-jobs", tags=["bot-jobs"])
+app.include_router(complete_booking.router, prefix="/api",tags=["bookings"])
+app.include_router(manager_subscription.router, prefix="/api/manager", tags=["manager-subscription"])
 app.include_router(slots.router, prefix="/api", tags=["slots"])
 app.include_router(bookings.router, prefix="/api", tags=["bookings"])
 app.include_router(sessions.router, prefix="/api", tags=["sessions"])
@@ -87,6 +117,16 @@ async def startup_event():
         trigger=CronTrigger(hour=0, minute=0),  # Every day at 12:00 AM
         id="midnight_reset_job",
         name="Reset daily slots at midnight",
+        replace_existing=True
+    )
+    
+    # Subscription Renewal Job - runs daily at 2 AM to process renewals
+    from app.services.subscription_service import renew_all_subscriptions
+    scheduler.add_job(
+        renew_all_subscriptions,
+        trigger=CronTrigger(hour=2, minute=0),  # Every day at 2:00 AM
+        id="subscription_renewal_job",
+        name="Process subscription renewals",
         replace_existing=True
     )
     

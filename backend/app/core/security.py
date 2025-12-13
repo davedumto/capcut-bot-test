@@ -1,10 +1,14 @@
 """
-Security utilities for password hashing and encryption
-As specified in instructions.md Phase 8
+Security utilities for password hashing, encryption, and JWT auth
+As specified in instructions.md Phase 8 and Module 1
 """
 
 import bcrypt
+import secrets
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
 from cryptography.fernet import Fernet
+from jose import JWTError, jwt
 from app.core.config import settings
 import logging
 
@@ -63,3 +67,68 @@ def decrypt_password(encrypted_password: str) -> str:
     except Exception as e:
         logger.error(f"Failed to decrypt password: {e}")
         raise
+
+
+# JWT Auth utilities
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_DAYS = 7
+
+
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Create JWT access token"""
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    
+    to_encode.update({"exp": expire})
+    
+    try:
+        encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
+        return encoded_jwt
+    except Exception as e:
+        logger.error(f"Failed to create JWT token: {e}")
+        raise
+
+
+def verify_token(token: str) -> Optional[Dict[str, Any]]:
+    """Verify and decode JWT token"""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+        return payload
+    except JWTError as e:
+        logger.warning(f"JWT verification failed: {e}")
+        return None
+
+
+# Magic Link utilities
+def generate_magic_token() -> str:
+    """Generate secure 32-byte hex token for magic links"""
+    return secrets.token_hex(32)
+
+
+def generate_temp_password() -> str:
+    """Generate temporary password for manager invites"""
+    return secrets.token_urlsafe(12)
+
+
+# FastAPI dependency for current user
+from fastapi import HTTPException, Request
+from fastapi.security import HTTPBearer
+from sqlalchemy.orm import Session
+
+security = HTTPBearer(auto_error=False)
+
+def get_current_user(request: Request) -> dict:
+    """Get current user from JWT token in cookies"""
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(401, "Invalid token")
+    
+    return payload

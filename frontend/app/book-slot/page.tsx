@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Calendar } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import BookingForm from '@/components/BookingForm'
 import SlotSelector from '@/components/SlotSelector'
 import ConfirmationModal from '@/components/ConfirmationModal'
@@ -19,9 +20,59 @@ interface BookingData {
 }
 
 export default function BookSlotPage() {
+  const router = useRouter()
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [step, setStep] = useState<'form' | 'slots' | 'confirmation'>('form')
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null)
   const [bookingData, setBookingData] = useState<BookingData | null>(null)
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+          credentials: 'include'
+        })
+        
+        if (response.ok) {
+          const userData = await response.json()
+          setIsAuthenticated(true)
+          // Auto-populate user details and skip to slot selection
+          setUserDetails({
+            name: userData.name,
+            email: userData.email
+          })
+          setStep('slots') // Skip form, go straight to slots
+        } else {
+          // Not authenticated, redirect to auth page
+          router.push('/auth')
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error)
+        router.push('/auth')
+      }
+    }
+    
+    checkAuth()
+  }, [router])
+
+  // Show loading while checking auth
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-white/60">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null
+  }
 
   const handleFormSubmit = (details: UserDetails) => {
     setUserDetails(details)
@@ -79,7 +130,7 @@ export default function BookSlotPage() {
         className="fixed top-0 left-0 right-0 z-50 px-6 py-4 bg-background border-b border-white/10"
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/">
+          <Link href="/dashboard">
             <motion.div 
               whileHover={{ x: -3 }}
               className="text-white/60 hover:text-white flex items-center gap-2 font-medium transition-colors cursor-pointer"
@@ -147,17 +198,9 @@ export default function BookSlotPage() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4"
             >
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                <div>
-                  <p className="text-lg font-semibold text-white">{userDetails.name}</p>
-                  <p className="text-sm text-white/60">{userDetails.email}</p>
-                </div>
-                <button
-                  onClick={handleStartOver}
-                  className="text-sm text-primary hover:text-primary/80 font-medium underline underline-offset-2 self-start sm:self-center transition-colors"
-                >
-                  Edit Details
-                </button>
+              <div>
+                <p className="text-lg font-semibold text-white">{userDetails.name}</p>
+                <p className="text-sm text-white/60">{userDetails.email}</p>
               </div>
             </motion.div>
             

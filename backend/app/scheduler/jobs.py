@@ -5,6 +5,7 @@ As specified in instructions.md Phase 5
 
 from datetime import datetime
 import pytz
+import asyncio
 from sqlalchemy.orm import Session
 from app.models.database import SessionLocal, Session as SessionModel, Password
 from app.services.bot_service import bot_service
@@ -30,16 +31,92 @@ def get_database_session():
         raise
 
 
+async def process_single_session(session_data: dict, semaphore: asyncio.Semaphore):
+    """
+    Process a single session's password reset.
+    Uses semaphore to limit concurrent bot executions.
+    """
+    async with semaphore:
+        db = None
+        try:
+            db = get_database_session()
+            session = db.query(SessionModel).filter_by(id=session_data["id"]).first()
+            
+            if not session or session.status != "pending":
+                return  # Session already processed or changed
+            
+            logger.info(f"Starting session {session.id} for {session.user_email}")
+            
+            # Call bot service via HTTP to reset password
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"{settings.bot_service_url}/bot/reset-password",
+                        json={},  # Bot will use env vars for email and generate password
+                        timeout=300.0  # 5 minutes timeout for bot operations
+                    )
+                    
+                    if response.status_code == 200:
+                        bot_result = response.json()
+                        success = bot_result.get("success", False)
+                        new_password = bot_result.get("new_password")
+                    else:
+                        logger.error(f"Bot service returned status {response.status_code}: {response.text}")
+                        success = False
+                        new_password = None
+                        
+            except Exception as e:
+                logger.error(f"Failed to call bot service for session {session.id}: {e}")
+                success = False
+                new_password = None
+            
+            if success and new_password:
+                # Create password entry in database
+                password_entry_data = password_service.create_password_entry(
+                    password=new_password,
+                    session_id=session.id
+                )
+                
+                # Save password to database
+                password_entry = Password(**password_entry_data)
+                db.add(password_entry)
+                db.commit()
+                db.refresh(password_entry)
+                
+                # Send email with credentials
+                email_sent = email_service.send_credentials_email(
+                    user_name=session.user_name,
+                    user_email=session.user_email,
+                    password=new_password,
+                    start_time=session.start_time.isoformat(),
+                    end_time=session.end_time.isoformat()
+                )
+                
+                if email_sent:
+                    # Update session status
+                    session.status = "active"
+                    session.current_password_id = password_entry.id
+                    db.commit()
+                    logger.info(f"Session {session.id} started successfully")
+                else:
+                    logger.error(f"Failed to send email for session {session.id}")
+            else:
+                logger.error(f"Bot failed to reset password for session {session.id}")
+                
+        except Exception as e:
+            logger.error(f"Failed to start session {session_data['id']}: {e}")
+            if db:
+                db.rollback()
+        finally:
+            if db:
+                db.close()
+
+
 async def session_start_job():
     """
     Session Start Job - Runs every minute
-    As per instructions.md:
-    - Check for sessions where current_time >= start_time AND status == 'pending'
-    - Call POST /bot/reset-password
-    - Generate new strong password
-    - Store password in DB (encrypted)
-    - Send email to user with credentials
-    - Update session.status = 'active'
+    PARALLEL EXECUTION: Processes multiple sessions simultaneously
+    Uses semaphore to limit to MAX_CONCURRENT_BOTS
     """
     db = None
     try:
@@ -54,70 +131,27 @@ async def session_start_job():
             SessionModel.status == "pending"
         ).all()
         
-        for session in pending_sessions:
-            try:
-                logger.info(f"Starting session {session.id} for {session.user_email}")
-                
-                # Call bot service via HTTP to reset password
-                try:
-                    async with httpx.AsyncClient() as client:
-                        response = await client.post(
-                            f"{settings.bot_service_url}/bot/reset-password",
-                            json={},  # Bot will use env vars for email and generate password
-                            timeout=300.0  # 5 minutes timeout for bot operations
-                        )
-                        
-                        if response.status_code == 200:
-                            bot_result = response.json()
-                            success = bot_result.get("success", False)
-                            new_password = bot_result.get("new_password")
-                        else:
-                            logger.error(f"Bot service returned status {response.status_code}: {response.text}")
-                            success = False
-                            new_password = None
-                            
-                except Exception as e:
-                    logger.error(f"Failed to call bot service: {e}")
-                    success = False
-                    new_password = None
-                
-                if success and new_password:
-                    
-                    # Create password entry in database
-                    password_entry_data = password_service.create_password_entry(
-                        password=new_password,
-                        session_id=session.id
-                    )
-                    
-                    # Save password to database
-                    password_entry = Password(**password_entry_data)
-                    db.add(password_entry)
-                    db.commit()
-                    db.refresh(password_entry)
-                    
-                    # Send email with credentials
-                    email_sent = email_service.send_credentials_email(
-                        user_name=session.user_name,
-                        user_email=session.user_email,
-                        password=new_password,
-                        start_time=session.start_time.isoformat(),
-                        end_time=session.end_time.isoformat()
-                    )
-                    
-                    if email_sent:
-                        # Update session status
-                        session.status = "active"
-                        session.current_password_id = password_entry.id
-                        db.commit()
-                        logger.info(f"Session {session.id} started successfully")
-                    else:
-                        logger.error(f"Failed to send email for session {session.id}")
-                else:
-                    logger.error(f"Bot failed to reset password for session {session.id}")
-                    
-            except Exception as e:
-                logger.error(f"Failed to start session {session.id}: {e}")
-                db.rollback()
+        if pending_sessions:
+            logger.info(f"Found {len(pending_sessions)} sessions to start (processing in parallel)")
+            
+            # Create semaphore to limit concurrent bot executions
+            semaphore = asyncio.Semaphore(settings.max_concurrent_bots)
+            
+            # Extract session data before closing DB connection
+            session_data_list = [{"id": s.id, "user_email": s.user_email} for s in pending_sessions]
+            
+            # Close main DB session before parallel processing
+            db.close()
+            db = None
+            
+            # Process all sessions in parallel with semaphore limiting
+            tasks = [
+                process_single_session(session_data, semaphore) 
+                for session_data in session_data_list
+            ]
+            await asyncio.gather(*tasks)
+            
+            logger.info(f"Completed processing {len(session_data_list)} sessions")
         
         if db:
             db.close()

@@ -53,10 +53,11 @@ class BookingRequest(BaseModel):
 
 
 class BookingResponse(BaseModel):
-    """Response schema for POST /api/bookings"""
     success: bool
     session_id: str
     message: str
+    payment_reference: Optional[str] = None
+    authorization_url: Optional[str] = None
 
 
 class ActiveSessionResponse(BaseModel):

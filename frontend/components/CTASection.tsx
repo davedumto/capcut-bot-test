@@ -25,10 +25,10 @@ export function CTASection({ onViewSlots }: CTASectionProps) {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-radial from-primary/10 to-transparent opacity-50 pointer-events-none" />
 
           <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
-            Ready to start editing?
+            Use CapCut Pro for ₦500
           </h2>
           <p className="text-xl text-white/60 mb-10 max-w-xl mx-auto">
-            Book your first slot in under 30 seconds. No subscription required.
+            Get 1 hour 30 minutes of premium access. Pay per session, no subscription needed.
           </p>
 
           <motion.button
@@ -37,7 +37,7 @@ export function CTASection({ onViewSlots }: CTASectionProps) {
             whileTap={{ scale: 0.95 }}
             className="px-10 py-5 bg-primary text-background rounded-full font-bold text-lg shadow-[0_0_20px_rgba(0,229,189,0.4)] hover:shadow-[0_0_40px_rgba(0,229,189,0.6)] transition-shadow inline-flex items-center gap-2"
           >
-            View Available Slots <ArrowRight className="w-5 h-5" />
+            Get Started for ₦500 <ArrowRight className="w-5 h-5" />
           </motion.button>
         </motion.div>
       </div>

@@ -152,6 +152,134 @@ Thank you for using CapCut Sharing!"""
             logger.error(f"Failed to send booking confirmation to {user_email}: {e}")
             return False
 
+    def send_magic_link(self, user_email: str, magic_link: str) -> bool:
+        """
+        Send magic link email for passwordless authentication
+        Module 1: Authentication
+        """
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = self.email
+            msg['To'] = user_email
+            msg['Subject'] = "Sign in to CapCut Sharing"
+            
+            body = f"""Hi there!
+
+Click the link below to sign in to your CapCut Sharing account:
+
+{magic_link}
+
+🔒 This link expires in 15 minutes for your security.
+🚫 If you didn't request this, please ignore this email.
+
+Questions? Contact support@capcut-sharing.com
+
+CapCut Sharing Team"""
+
+            msg.attach(MIMEText(body, 'plain'))
+            
+            with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port) as server:
+                server.login(self.email, self.password)
+                server.send_message(msg)
+            
+            logger.info(f"Magic link sent to {user_email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to send magic link to {user_email}: {e}")
+            return False
+    
+    def send_manager_invite(self, manager_email: str, manager_name: str, temp_password: str) -> bool:
+        """
+        Send manager invitation email with temporary password
+        Module 1: Authentication & Module 9: Admin Panel
+        """
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = self.email
+            msg['To'] = manager_email
+            msg['Subject'] = "Welcome to CapCut Sharing - Manager Account"
+            
+            login_url = f"{self._get_frontend_url()}/auth/login"
+            
+            body = f"""Hi {manager_name},
+
+Welcome to CapCut Sharing! You've been invited to manage a team.
+
+🔑 Your login credentials:
+Email: {manager_email}
+Temporary Password: {temp_password}
+
+👉 Sign in here: {login_url}
+
+⚠️ You'll be required to change your password on first login.
+
+Next steps:
+1. Sign in and change your password
+2. Add your CapCut Pro credentials
+3. Add your team members (up to 12)
+
+Questions? Contact support@capcut-sharing.com
+
+CapCut Sharing Team"""
+
+            msg.attach(MIMEText(body, 'plain'))
+            
+            with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port) as server:
+                server.login(self.email, self.password)
+                server.send_message(msg)
+            
+            logger.info(f"Manager invite sent to {manager_email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to send manager invite to {manager_email}: {e}")
+            return False
+    
+    def send_password_reset(self, user_email: str, reset_link: str) -> bool:
+        """
+        Send password reset email to manager
+        """
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = self.email
+            msg['To'] = user_email
+            msg['Subject'] = "Reset Your Password - Slotio"
+            
+            body = f"""Hi there,
+
+You requested to reset your password on Slotio.
+
+Click the link below to reset your password:
+
+{reset_link}
+
+🔒 This link expires in 1 hour for your security.
+🚫 If you didn't request this, please ignore this email.
+
+After clicking, you'll be logged in and prompted to set a new password.
+
+Questions? Contact support@capcut-sharing.com
+
+Slotio Team"""
+
+            msg.attach(MIMEText(body, 'plain'))
+            
+            with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port) as server:
+                server.login(self.email, self.password)
+                server.send_message(msg)
+            
+            logger.info(f"Password reset email sent to {user_email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to send password reset to {user_email}: {e}")
+            return False
+    
+    def _get_frontend_url(self) -> str:
+        """Get frontend URL from config"""
+        return settings.frontend_url
+
 
 # Singleton instance
 email_service = EmailService()

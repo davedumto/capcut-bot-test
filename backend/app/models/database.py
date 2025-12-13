@@ -16,14 +16,50 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
+    user_type = Column(String(20), nullable=False, default='one_off')  # 'one_off', 'manager', 'team_member'
+    
+    # Manager-specific
+    tenant_id = Column(Integer, nullable=True)  # For managers: their tenant
+    
+    # Team member-specific  
+    team_tenant_id = Column(Integer, nullable=True)  # For team members: manager's tenant
+    
+    # Password auth (for managers only)
+    password_hash = Column(String(255), nullable=True)  # Only for managers
+    must_change_password = Column(Boolean, default=False)  # Force password change on first login
+    
+    # Usage tracking
+    total_sessions = Column(Integer, default=0)
+    total_hours = Column(Text, default='0.0')  # Store as text to avoid decimal precision issues
+    
+    # Marketing
+    marketing_consent = Column(Boolean, default=False)
+    
+    # Subscription
+    subscription_status = Column(String(20), default="inactive")
+    subscription_expires_at = Column(DateTime, nullable=True)
+    paystack_customer_code = Column(String(100), nullable=True)
+    paystack_authorization_code = Column(String(255), nullable=True)
+    
+    # Timestamps
     created_at = Column(DateTime, default=func.now())
+    last_login_at = Column(DateTime, nullable=True)
     
     # Relationships
     sessions = relationship("Session", back_populates="user")
 
 
+class AuthToken(Base):
+    __tablename__ = "auth_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    token = Column(String(255), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
 
 
 class Password(Base):
@@ -45,12 +81,13 @@ class TimeSlot(Base):
     __tablename__ = "time_slots"
     __table_args__ = {'extend_existing': True}
     
-    id = Column(String(20), primary_key=True, index=True)  # slot_1, slot_2, etc.
+    id = Column(String(50), primary_key=True, index=True)  # tenant_1_slot_1, slot_1 (for Slotio)
     slot_number = Column(Integer, nullable=False, index=True)  # 1, 2, 3, ..., 16
     start_time = Column(DateTime, nullable=False, index=True)
     end_time = Column(DateTime, nullable=False, index=True)
     date = Column(DateTime, nullable=False, index=True)  # Date this slot belongs to (for daily reset)
     available = Column(Boolean, default=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)  # NULL = Slotio pool
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -81,6 +118,44 @@ class Session(Base):
     time_slot = relationship("TimeSlot", back_populates="sessions")
 
 
+class Tenant(Base):
+    __tablename__ = "tenants"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255))  # Team name
+    manager_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=True)  # Nullable for Slotio accounts
+    capcut_email = Column(String(255))
+    capcut_password_encrypted = Column(Text)
+    gmail_email = Column(String(255))  
+    gmail_password_encrypted = Column(Text)
+    is_slotio_account = Column(Boolean, default=False)  # Platform vs manager account
+    subscription_status = Column(String(20), default="active")
+    allow_multiple_bookings = Column(Boolean, default=False)  # Toggle for multiple bookings per day
+    total_team_sessions = Column(Integer, default=0)  # Team usage stats
+    total_team_hours = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    
+    manager = relationship("User", foreign_keys=[manager_id])
+    team_members = relationship("TeamMember", back_populates="tenant")
+
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    email = Column(String(255), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    added_at = Column(DateTime, default=func.now())
+    
+    tenant = relationship("Tenant", back_populates="team_members")
+    user = relationship("User", foreign_keys=[user_id])
+    
+    __table_args__ = (
+        {"extend_existing": True},
+    )
+
+
 class DailyLog(Base):
     __tablename__ = "daily_logs"
     
@@ -90,6 +165,36 @@ class DailyLog(Base):
     booked_slots = Column(Integer)
     no_shows = Column(Integer)
     created_at = Column(DateTime, default=func.now())
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    reference = Column(String(100), unique=True, nullable=False, index=True)
+    amount = Column(Integer, nullable=False)  # In kobo
+    type = Column(String(20), nullable=False)  # session, subscription
+    status = Column(String(20), default="pending", index=True)
+    paystack_response = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    user = relationship("User")
+
+
+class BotJob(Base):
+    __tablename__ = "bot_jobs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("sessions.id"), nullable=False)
+    job_type = Column(String(50), nullable=False)  # password_reset, session_end
+    status = Column(String(20), default="pending", index=True)  # pending, processing, completed, failed
+    attempts = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    session = relationship("Session")
 
 
 # Database dependency

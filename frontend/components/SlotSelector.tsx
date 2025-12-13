@@ -38,6 +38,7 @@ export default function SlotSelector({ userDetails, onBookingComplete }: SlotSel
   const [isBooking, setIsBooking] = useState(false)
   const [error, setError] = useState('')
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [currentPrice, setCurrentPrice] = useState(500) // Default ₦500
 
   const timePeriods: TimePeriod[] = [
     { key: 'lateNight', label: 'Late Night', icon: '🌜', timeRange: '12 AM - 6 AM' },
@@ -48,7 +49,21 @@ export default function SlotSelector({ userDetails, onBookingComplete }: SlotSel
 
   useEffect(() => {
     fetchSlots()
+    fetchCurrentPrice()
   }, [])
+
+  const fetchCurrentPrice = async () => {
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const res = await fetch(`${API_BASE}/api/bookings/price?email=${encodeURIComponent(userDetails.email)}`)
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentPrice(data.price)
+      }
+    } catch (err) {
+      console.error('Failed to fetch price:', err)
+    }
+  }
 
   const fetchSlots = async () => {
     try {
@@ -107,8 +122,15 @@ export default function SlotSelector({ userDetails, onBookingComplete }: SlotSel
         slot_id: selectedSlot.id,
       })
       
-      if (data.success && data.session_id) {
-        onBookingComplete(data.session_id)
+      if (data.success && data.authorization_url) {
+        // Store session info for after payment
+        if (data.payment_reference) {
+          sessionStorage.setItem('payment_reference', data.payment_reference)
+        }
+        sessionStorage.setItem('session_id', data.session_id)
+        
+        // Redirect to Paystack
+        window.location.href = data.authorization_url
       } else {
         throw new Error('Invalid booking response')
       }
@@ -264,7 +286,7 @@ export default function SlotSelector({ userDetails, onBookingComplete }: SlotSel
                 Booking...
               </>
             ) : (
-              'Confirm & Book'
+              `Pay ₦${currentPrice.toLocaleString()} to book`
             )}
           </motion.button>
         </div>

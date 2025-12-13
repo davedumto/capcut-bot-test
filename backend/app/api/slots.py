@@ -17,41 +17,43 @@ def get_wat_now():
 @router.get("/slots", response_model=SlotsResponse)
 async def get_available_slots(db: Session = Depends(get_db)):
     """
-    Get time slots for today - NOW USES STORED TIMESLOTS
-    NEW: 24-hour slots from 12:00 AM to 12:00 AM (16 slots × 1.5 hours)
-    - Each slot is 1.5 hours (90 minutes)
-    - Slots are: 12:00-1:30, 1:30-3:00, 3:00-4:30, etc.
-    - Last slot: 10:30 PM - 12:00 AM (ends exactly at midnight)
-    - Returns stored TimeSlot data with real availability status
+    Get time slots for today - SLOTIO POOL ONLY (for one-off users)
+    - Returns only slots with tenant_id=NULL (Slotio accounts)
+    - Team members use /api/users/team-member-data instead
     """
     try:
         current_time = get_wat_now()
         
         # Get stored slots from database using slots_service
-        # This automatically initializes slots if they don't exist
-        stored_slots = slots_service.get_available_slots(db, current_time)
+        # Pass tenant_id=None for Slotio pool (one-off users)
+        stored_slots = slots_service.get_available_slots(db, current_time, tenant_id=None)
         
-        # Convert stored TimeSlots to TimeSlotSchema for API response
+        # Get Slotio account count for capacity check
+        from app.models.database import Tenant
+        slotio_count = db.query(Tenant).filter_by(is_slotio_account=True).count()
+        
+        if slotio_count == 0:
+            slotio_count = 1  # Default to 1 if no accounts configured yet
+        
+        # Initialize slots list
         slots = []
         
         for stored_slot in stored_slots:
             # Check if slot has actually started (for past slots)
             slot_has_started = stored_slot.start_time <= current_time
             
-            # Check if there's an active session for this slot
-            existing_session = db.query(SessionModel).filter(
+            # Count existing bookings for this slot
+            booking_count = db.query(SessionModel).filter(
                 SessionModel.slot_id == stored_slot.id,
                 SessionModel.status.in_(["pending", "active"])
-            ).first()
+            ).count()
             
             # Slot is available if:
-            # 1. Marked as available in database
-            # 2. Has not started yet (current time is before slot start time)  
-            # 3. No active session exists for this slot
+            # 1. Has not started yet (current time is before slot start time)  
+            # 2. Booking count is less than Slotio account count
             is_available = (
-                stored_slot.available and 
                 not slot_has_started and 
-                existing_session is None
+                booking_count < slotio_count
             )
             
             slots.append(TimeSlotSchema(

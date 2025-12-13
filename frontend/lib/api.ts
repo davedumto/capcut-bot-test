@@ -27,6 +27,8 @@ export interface BookingResponse {
   success: boolean
   session_id: string
   message: string
+  payment_reference?: string
+  authorization_url?: string
 }
 
 export interface ActiveSession {
